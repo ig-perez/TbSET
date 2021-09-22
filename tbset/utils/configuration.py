@@ -18,13 +18,16 @@ class TbSETConfig:
                 "dff": config["TRN_HYPERP"]["dff"],
                 "dropout_rate": config["TRN_HYPERP"]["dropout_rate"],
                 "ckpt_path": config["TRN_HYPERP"]["ckpt_path"],
-                "save_path": config["TRN_HYPERP"]["save_path"]
+                "save_path": config["TRN_HYPERP"]["save_path"],
+                "epochs": config["TRN_HYPERP"]["epochs"]
             }
             self.DATASET_HYPERP = {
                 "dwn_destination": config["DATASET_HYPERP"]["dwn_destination"],
                 "vocab_path": config["DATASET_HYPERP"]["vocab_path"],
                 "buffer_size": config["DATASET_HYPERP"]["buffer_size"],
-                "batch_size": config["DATASET_HYPERP"]["batch_size"]
+                "batch_size": config["DATASET_HYPERP"]["batch_size"],
+                "vocab_size": config["DATASET_HYPERP"]["vocab_size"],
+                "num_examples": config["DATASET_HYPERP"]["num_examples"]
             }
         else:
             raise IOError("Impossible to open the config file for TbSET.")

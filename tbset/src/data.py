@@ -61,6 +61,12 @@ class EnEsTokenizer(tf.Module):
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None], dtype=tf.string)])
     def tokenize(self, strings):
+        """
+        but what if it were active ? -> [2, 87, 90, 107, 76, 129, 1852, 30, 3] ... this include word-pieces
+
+        :param strings:
+        :return:
+        """
         results = self.tokenizer.tokenize(strings)  # BertTokenizer returns (batch, word, word-piece)
         results = results.merge_dims(-2, -1)  # (batch, word, word-piece) -> (batch, tokens)
         results = self._add_start_end(results)
@@ -93,7 +99,7 @@ class EnEsTokenizer(tf.Module):
 
 class Dataset:
 
-    def __init__(self, dwn_destination, vocab_path, buffer_size, batch_size):
+    def __init__(self, dwn_destination, vocab_path, buffer_size, batch_size, vocab_size, num_examples):
         super(Dataset, self).__init__()
 
         self.dwn_destination = dwn_destination
@@ -101,6 +107,10 @@ class Dataset:
         # Dataset hyperparameters
         self.buffer_size = buffer_size
         self.batch_size = batch_size
+        self.vocab_size = vocab_size
+        self.num_examples = num_examples
+
+        self.tokenizers = tf.Module()
 
     def _get_opus_datasets(self, dwn_path: str, num_items: int):
         """
@@ -154,19 +164,18 @@ class Dataset:
         # 1. Load the datasets
         (raw_trn_ds,
          raw_tst_ds,
-         raw_val_ds) = self._get_opus_datasets(self.dwn_destination, 57000)
+         raw_val_ds) = self._get_opus_datasets(self.dwn_destination, self.num_examples)
 
-        # 2. Create the tokenizers
+        # 2. Create the tokenizers starting with the vocabularies
         reserved_tokens = ["[PAD]", "[UNK]", "[START]", "[END]"]
 
-        # If vocab files exists, load them, otherwise, create them
         if os.path.isfile(f"{self.vocab_path}/es_vocab.txt") and os.path.isfile(f"{self.vocab_path}/en_vocab.txt"):
             pass
-        else:
+        else:  # No vocab files found -> create them
             bert_tokenizer_params = dict(lower_case=True)  # Otherwise Que != que
 
             bert_vocab_maker_args = dict(
-                vocab_size=8000,
+                vocab_size=self.vocab_size,
                 reserved_tokens=reserved_tokens,
                 bert_tokenizer_params=bert_tokenizer_params,
                 learn_params={}
@@ -187,7 +196,7 @@ class Dataset:
             with open(f"{self.vocab_path}/en_vocab.txt", "w") as file:
                 file.writelines("%s\n" % token for token in en_vocab)
 
-        self.tokenizers = tf.Module()
+        # Create tokenizers
         self.tokenizers.es = EnEsTokenizer(reserved_tokens, f"{self.vocab_path}/es_vocab.txt")
         self.tokenizers.en = EnEsTokenizer(reserved_tokens, f"{self.vocab_path}/en_vocab.txt")
 
