@@ -1,28 +1,53 @@
 import numpy as np
 import tensorflow as tf
 
+# TF type annotations not yet implemented as of sept. 21: https://github.com/tensorflow/tensorflow/issues/12345
+from typing import Any
+
+#### TODO: REMOVE THIS BEFORE FINISHING !!!!!!!!!!!!!!!!!
+tf.config.run_functions_eagerly(True)
+
 # .....................................................................................................................
 
-# TODO add return type of this fx and convert to private method
-def positional_encoding(position: int, d_model: int):
+
+def positional_encoding(position: int, d_model: int) -> Any:
 	"""
-	A method to calculate the position encodings for the Encoder/Decoder inputs.
+	This a helper function for the Decoder and Encoder. It calculates the positional encodings used when feeding the
+	inputs to the Encoder/Decoder. The method returns a (1, max_position_enc, d_model) tensor. This means we have up to
+	"max_position_enc" d_model-dimensional vectors that can be added to the word embeddings before input the sequences
+	to the Transformer.
 
-	:param position: The max. possible positions to consider when calculating positional encodings.
-	:param d_model: Dimensionality of the internal vector representation of the Transformer.
+	:param position: The max. possible positions to consider in an input sequence.
+	:param d_model: Dimensionality of the internal vector representation of the Transformer (equals to the embeddings
+					size).
 
-	:return: None
+	:return: A (1, max_position_enc, d_model) tensor containing positional encodings.
 	"""
 
-	def _get_angles(pos, i, d_model):  # TODO: Document. pos is (max_position_enc, 1) i is (1, d_model)
+	def _get_angles(pos: np.ndarray, i: np.ndarray, d_model: int) -> np.ndarray:
+		"""
+		Calculates a d_model positional embedding where each dimension is represented with a different sinusoid. The
+		wavelengths form a geometric progression from 2π to 10000⋅2π.
+
+		:param pos: A column vector (max_position_enc, 1) representing the max. possible positions to consider in an
+		input sequence.
+		:param i: A row vector (1, d_model) representing the dimensionality of the token embeddings. Each dimension
+		of the positional encoding corresponds to a sinusoid.
+		:param d_model: Dimensionality of the internal vector representation of the Transformer. In this case
+		corresponds to the Embedding size.
+
+		:return: A (max_position_enc, d_model) matrix containing positional encodings.
+		"""
+
 		angle_rates = 1 / np.power(10000, (2*(i//2))/np.float32(d_model))  # TODO: Why i//2?
 
 		return pos * angle_rates  # (max_position_enc, d_model) == (1000, 128)
 
+	# Calculate all the positional encodings up to "position"
 	angle_rads = _get_angles(np.arange(position)[:, np.newaxis], np.arange(d_model)[np.newaxis, :], d_model)
+
 	# apply sin to even indices in the array; 2i -> (start:stop:step)
 	angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
-
 	# apply cos to odd indices in the array; 2i+1
 	angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
 
@@ -31,13 +56,18 @@ def positional_encoding(position: int, d_model: int):
 	return tf.cast(pos_encoding, dtype=tf.float32)  # (1, max_position_enc, d_model)
 
 
-def point_wise_feed_forward_network(d_model, dff):
+def point_wise_feed_forward_network(d_model: int, dff: int) -> tf.keras.Sequential:
 	"""
-	Point wise feed forward network consists of two fully-connected layers with a
-	ReLU activation in between.
+	This a helper function for the Decoder and Encoder. Defines and returns a point wise feed forward network which
+	consists of two fully-connected layers with a ReLU activation in between. These NN process the output of the
+	MultiHeadAttention blocks.
+
+	:param d_model: Dimensionality of the internal vector representation of the Transformer
+	:param dff: Dimensionality of the NN's output space (number of units).
+
+	:return: A sequential model composed by two densely connected layers to process the MultiHeadAttention blocks.
 	"""
 
-	# TODO: Why we don't have a softmax?
 	return tf.keras.Sequential([
 		tf.keras.layers.Dense(dff, activation="relu"),  # (b, n, dff)
 		tf.keras.layers.Dense(d_model)  # (b, n, d)
@@ -162,24 +192,26 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
 
 class EncoderLayer(tf.keras.layers.Layer):
-	"""
-	Each encoder layer consists of sublayers:
-	  - Multi-head attention (with padding mask)
-	  - Point wise feed forward networks.
 
-	Each of these sublayers has a residual connection around it followed by a
-	layer normalization. Residual connections help in avoiding the vanishing
-	gradient problem in deep networks. The output of each sublayer is
-	`LayerNorm(x + Sublayer(x))`. The normalization is done on the `d_model`
-	(last) axis. There are N encoder layers in the transformer.
+	def __init__(self, d_model: int, num_heads: int, dff: int, rate: float = 0.1) -> None:
+		"""
+		Each encoder layer consists of two sublayers:
+			- Multi-head attention (with padding mask)
+			- Point wise feed forward networks
 
-	Parameters
-	----------
-	- `d_model`: The dimensionality of the internal vector representation
-	- `dff`    : The dimensionality of the FFN
-	"""
+		Each of these sublayers has a residual connection around it followed by a layer normalization. Residual
+		connections help in avoiding the vanishing gradient problem in deep networks. The output of each sublayer is
+		`LayerNorm(x + Sublayer(x))`. The normalization is done on the `d_model` (last) axis. There are N encoder
+		layers in the transformer.
 
-	def __init__(self, d_model, num_heads, dff, rate=0.1):
+		:param d_model: Dimensionality of the internal vector representation of the Transformer
+		:param num_heads: The number of Attention heads for the MultiHeadAttention module.
+		:param dff: Dimensionality of the NN's output space (number of units).
+		:param rate: The percentaje of units to turn off during training.
+
+		:return: None.
+		"""
+
 		super(EncoderLayer, self).__init__()
 
 		self.mha = MultiHeadAttention(d_model, num_heads)
@@ -191,46 +223,60 @@ class EncoderLayer(tf.keras.layers.Layer):
 		self.dropout1 = tf.keras.layers.Dropout(rate)
 		self.dropout2 = tf.keras.layers.Dropout(rate)
 
-	def call(self, x, training, mask):
+	def call(self, x: Any, training: bool, mask: Any) -> Any:
+		"""
+		A complete set of calculations to apply Attention to the batch of input sequences.
+
+		:param x: A (b, n_inp, d) tensor containing training examples to be used as inputs. Where `b` is the
+				`batch_size`, `n_inp` is the length of the input padded examples, and `d` is the embeddings
+				dimensionality.
+		:param training: Indicates how the layer should behave in training mode (adding dropout) or in inference mode
+						(doing nothing).
+		:param mask: A (b, 1, 1, n_inp) tensor containing the padding mask for the Encoder.
+
+		:return: A (b, n_inp, d) tensor containing the representation of the inputs batch after the current Encoder
+				layer.
+		"""
+
 		# Attention to the input x
-		attn_output, _ = self.mha(x, x, x, mask)  # (b, n, d) TODO: Research how mask works/is implemented
+		attn_output, _ = self.mha(x, x, x, mask)  # (b, n_inp, d) TODO: Research how mask works/is implemented
 		attn_output = self.dropout1(attn_output, training=training)
-		out1 = self.layernorm1(x + attn_output)  # (b, n, d)
+		out1 = self.layernorm1(x + attn_output)  # (b, n_inp, d)
 
 		# Attention output to the FFN
-		ffn_output = self.ffn(out1)  # (b, n, d)
+		ffn_output = self.ffn(out1)  # (b, n_inp, d)
 		ffn_output = self.dropout2(ffn_output, training=training)
 		out2 = self.layernorm2(out1 + ffn_output)
 
-		return out2
+		return out2  # (b, n_inp, d)
 
 
 class DecoderLayer(tf.keras.layers.Layer):
-	"""
-	Each decoder layer consists of sublayers:
-	  - Masked multi-head attention (with look ahead mask and padding mask)
-	  - Multi-head attention (with padding mask). V (value) and K (key) receive
-		the encoder output as inputs. Q (query) receives the output from the
-		masked multi-head attention sublayer.
-	  - Point wise feed forward networks
 
-	These sublayers has a residual connection like with the EncoderLayer. The
-	normalization is done on the d_model (last) axis.
+	def __init__(self, d_model: int, num_heads: int, dff: int, rate: float = 0.1) -> None:
+		"""
+		Each decoder layer consists of sublayers:
+			- Masked multi-head attention (with look ahead mask and padding mask)
+			- Multi-head attention (with padding mask). V (value) and K (key) receive the encoder output as inputs. Q
+			(query) receives the output from the masked multi-head attention sublayer.
+			- Point wise feed forward networks
 
-	There are N decoder layers in the transformer. As Q receives the output
-	from decoder's first attention block, and K receives the encoder output,
-	the attention weights represent the importance given to the decoder's input
-	based on the encoder's output. In other words, the decoder predicts the
-	next token by looking at the encoder output and self-attending to its own
-	output.
+		These sublayers has a residual connection like with the EncoderLayer. The normalization is done on the d_model
+		(last) axis.
 
-	Parameters
-	----------
-	- `d_model`: The dimensionality of the internal vector representation
-	- `dff`    : The dimensionality of the FFN
-	"""
+		There are N decoder layers in the transformer. As Q receives the output from decoder's first attention block,
+		and K receives the encoder output, the attention weights represent the importance given to the decoder's input
+		based on the encoder's output. In other words, the decoder predicts the next token by looking at the encoder
+		output and self-attending to its own output.
 
-	def __init__(self, d_model, num_heads, dff, rate=0.1):
+		:param d_model: Dimensionality of the internal vector representation of the Transformer
+		:param num_heads: The number of Attention heads for the MultiHeadAttention module.
+		:param dff: Dimensionality of the NN's output space (number of units).
+		:param rate: The percentaje of units to turn off during training.
+
+		:return: None.
+		"""
+
 		super(DecoderLayer, self).__init__()
 
 		self.mha1 = MultiHeadAttention(d_model, num_heads)  # For the target it receives as input
@@ -246,130 +292,170 @@ class DecoderLayer(tf.keras.layers.Layer):
 		self.dropout2 = tf.keras.layers.Dropout(rate)
 		self.dropout3 = tf.keras.layers.Dropout(rate)
 
-	def call(self, x, enc_output, training, look_ahead_mask, padding_mask):
-		attn1, att_weights_block1 = self.mha1(x, x, x, look_ahead_mask)  # (b, n, d)
+	def call(self, x: Any, enc_output: Any, training: bool, look_ahead_mask: Any, padding_mask: Any) -> Any:
+		"""
+		A complete set of calculations to apply Attention to the batch of input sequences.
+
+		:param x: A (b, n_tar, d) tensor containing a batch of corresponding translations for current input sentences.
+				These sentences are shifted right one position so the Decoder don't learn to copy the word it should
+				predict. `b` is the `batch_size`, `n_tar` is the length of the input padded examples, and `d` is the
+				embeddings dimensionality.
+		:param enc_output: A (b, n_inp, d) tensor containing the Encoder's representation of the current training batch
+		:param training: Indicates how the layer should behave in training mode (adding dropout) or in inference mode
+						(doing nothing).
+		:param look_ahead_mask: A (b, 1, n_tar, n_tar) tensor containing the look_ahead mask for the Decoder.
+		:param padding_mask: A (b, 1, 1, n_inp) tensor containing the padding mask for the Decoder.
+
+		:return: A tuple of three elements. The current Decoder layer output (b, n_tar, d), the Attention weights from
+				the Masked MultiHeadAttention block (b, h, n_tar, n_tar), and the Attention weights from the
+				MultiHeadAttention block that receives the Encoder's output (b, h, n_tar, n_inp).
+		"""
+
+		attn1, att_weights_block1 = self.mha1(x, x, x, look_ahead_mask)  # (b, n_tar, d)
 		attn1 = self.dropout1(attn1, training=training)
 		out1 = self.layernorm1(attn1 + x)
 
-		attn2, att_weights_block2 = self.mha2(enc_output, enc_output, out1, padding_mask)  # (b, n, d)
+		attn2, att_weights_block2 = self.mha2(enc_output, enc_output, out1, padding_mask)  # (b, n_tar, d)
 		attn2 = self.dropout2(attn2, training=training)
-		out2 = self.layernorm2(attn2 + out1)  # (b, n, d)
+		out2 = self.layernorm2(attn2 + out1)  # (b, n_tar, d)
 
-		ffn_output = self.ffn(out2)  # (b, n, d)
+		ffn_output = self.ffn(out2)  # (b, n_tar, d)
 		ffn_output = self.dropout3(ffn_output, training=training)
-		out3 = self.layernorm3(ffn_output + out2)  # (b, n, d)
+		out3 = self.layernorm3(ffn_output + out2)  # (b, n_tar, d)
 
-		# TODO: Research why do we need these att. weights?
-		return out3, att_weights_block1, att_weights_block2
+		# att_weights_block1 is (b, h, n_tar, n_tar), att_weights_block2 is (b, h, n_tar, n_inp)
+		return out3, att_weights_block1, att_weights_block2  # out3 is (b, n_tar, d)
 
 
 class Encoder(tf.keras.layers.Layer):
-	"""
-	The Encoder consists of:
-	  - Input Embedding
-	  - Positional Encoding
-	  - N encoder layers
 
-	The input is put through an embedding which is summed with the positional
-	encoding. The output of this summation is the input to the encoder layers.
-	The output of the encoder is the input to the decoder.
+	def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size, maximum_position_encoding,
+				 rate=0.1) -> None:
+		"""
+		The Encoder consists of:
+			- Input Embedding
+			- Positional Encoding
+			- N Encoder Layers
 
-	Parameters
-	----------
-	- `d_model`: The dimensionality of the internal vector representation
-	"""
+		The input is put through an embedding which is summed with the positional encoding. The output of this
+		summation is the input to the encoder layers. The output of the encoder is the input to the decoder.
 
-	def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size, maximum_position_encoding, rate=0.1):
+		:param num_layers: Number of Encoder Layers to create in the Encoder block.
+		:param d_model: Dimensionality of the internal vector representation of the Transformer (equals to the
+						embeddings size in this case).
+		:param num_heads: The number of Attention heads for the MultiHeadAttention module.
+		:param dff: Dimensionality of the NN's output space (number of units).
+		:param input_vocab_size: The top number of tokens to consider in the source vocabulary.
+		:param maximum_position_encoding: The number of positional encodings to generate.
+		:param rate: The percentaje of units to turn off during training.
+
+		:return: None.
+		"""
+
 		super(Encoder, self).__init__()
 
 		self.d_model = d_model
 		self.num_layers = num_layers
 
-		# An encoder is made of an Embedding layer:
 		self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
-		# A positional encoding layer for the inputs:
-		self.pos_encoding = positional_encoding(maximum_position_encoding,
-												self.d_model)  # maximum_position_encoding == pe_input from Transformer
-		# Several Encoder layers (or blocks):
+		# maximum_position_encoding == pe_input from Transformer
+		self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)  # (1000, 128)
 		self.enc_layers = [EncoderLayer(d_model, num_heads, dff, rate) for block in range(self.num_layers)]
-		# Also a Dropout layer (it has a FNN inside):
 		self.dropout = tf.keras.layers.Dropout(rate)
 
-	def call(self, x, training: bool, mask):
+
+	def call(self, x: Any, training: bool, mask: Any) -> Any:
 		"""
 		A complete set of calculations for encoding the input sequence.
 
-		Parameters
-		----------
-		- `x`       : A ??? containing a batch of training examples as input
-					  sequences. Its shape is (b, n, d) == (b, input_seq_len, d_model)
-		- `training`: Indicates whether the layer should behave in training mode
-					  (adding dropout) or in inference mode (doing nothing).
+		:param x: A (b, n_inp) tensor containing training examples to be used as inputs. Where `b` is the `batch_size`,
+				and `n_inp` is the length of the input padded examples.
+		:param training: Indicates how the layer should behave in training mode (adding dropout) or in inference mode
+						(doing nothing).
+		:param mask: A (b, 1, 1, n_inp) tensor containing the padding mask for the Encoder.
+
+		:return: A (b, n_inp, d) tensor containing the representation of each training example in current batch after
+				applying the Attention calculations.
 		"""
 
-		seq_len = tf.shape(x)[1]  # The number of words in all samples of current batch (padded?)
+		seq_len = tf.shape(x)[1]  # It is likely that the Target batch have a different sequence length
 
-		x = self.embedding(x)
+		x = self.embedding(x)  # (b, n_inp = seq_len, d)
 		x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # BY_EXPERIENCE: A normalization term!
-		x += self.pos_encoding[:, :seq_len,
-			 :]  # Remember (b, n, d). This applies only in the 2nd dimension. TODO: Understand what is being done here
+		x += self.pos_encoding[:, :seq_len, :]  # Adds the position encoding to sequences (seq_len) in current batch
+		x = self.dropout(x, training=training)  # (b, n_inp, d)
 
-		# The dropout before the Encoder blocks!
-		x = self.dropout(x, training=training)
-
-		# Now the calculations among the blocks
 		for i in range(self.num_layers):
-			x = self.enc_layers[i](x, training, mask)  # Parameters for EncoderLayer.call()
+			x = self.enc_layers[i](x, training, mask)  # Attention calculations and more
 
-		return x  # This goes to the Decoder, (b, n, d)
+		return x  # This goes to the Decoder for current batch: (b, n_inp, d)
 
 
 class Decoder(tf.keras.layers.Layer):
-	"""
-	The Decoder consists of:
-	  - Output Embedding
-	  - Positional Encoding
-	  - N decoder layers
 
-	The target is put through an embedding which is summed with the positional
-	encoding. The output of this summation is the input to the decoder layers.
-	The output of the decoder is the input to the final linear layer.
+	def __init__(self, num_layers: int, d_model: int, num_heads: int, dff: int, target_vocab_size: int,
+				 maximum_position_encoding: int, rate: float = 0.1) -> None:
+		"""
+		The Decoder consists of:
+			- Output Embedding
+			- Positional Encoding
+			- N decoder layers
 
-	Parameters
-	----------
-	- `d_model`: The dimensionality of the internal vector representation
-	- `dff`    : The dimensionality of the FFN
-	"""
+		The target is put through an embedding which is summed with the positional encoding. The output of this summation
+		is the input to the decoder layers. The output of the decoder is the input to the final linear layer.
 
-	def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size, maximum_position_encoding, rate=0.1):
+		:param num_layers: Number of Decoder Layers to create in the Encoder block.
+		:param d_model: Dimensionality of the internal vector representation of the Transformer (equals to the
+						embeddings size in this case).
+		:param num_heads: The number of Attention heads for the MultiHeadAttention module.
+		:param dff: Dimensionality of the NN's output space (number of units).
+		:param target_vocab_size: The top number of tokens to consider in the target vocabulary.
+		:param maximum_position_encoding: The number of positional encodings to generate.
+		:param rate: The percentaje of units to turn off during training.
+
+		:return: None.
+		"""
+
 		super(Decoder, self).__init__()
 
 		self.d_model = d_model
 		self.num_layers = num_layers
 
 		self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
-		self.pos_encoding = positional_encoding(maximum_position_encoding,
-												d_model)  # maximum_position_encoding == pe_target from Transformer
+		self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
 		self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate) for block in range(num_layers)]
 		self.dropout = tf.keras.layers.Dropout(rate)
 
-	def call(self, x, enc_output, training, look_ahead_mask, padding_mask):
-		seq_len = tf.shape(x)[1]  # TODO: Like with the Decoder, get an idea of how does this look like
+	def call(self, x: Any, enc_output: Any, training: bool, look_ahead_mask: Any, padding_mask: Any) -> Any:
+		"""
+		A complete set of calculations for decoding the input sequence and making a prediction.
+
+		:param x: A (b, n_tar) tensor containing training examples to be used as inputs. Where `b` is the `batch_size`,
+				and `n_inp` is the length of the input padded examples.
+		:param enc_output: A (b, n_inp, d) tensor containing the representation build by the Encoder block.
+		:param training: Indicates how the layer should behave in training mode (adding dropout) or in inference mode
+						(doing nothing).
+		:param look_ahead_mask: A (b, 1, n_tar, n_tar) tensor containing the look_ahead mask for the Decoder.
+		:param padding_mask: A (b, 1, 1, n_inp) tensor containing the padding mask for the Decoder. TODO: n_inp o n_tar???
+
+		:return: A tuple consisting of a (b, n_tar, d) tensor with the decoded sequence (logits) and a dictionary with
+				the Attention weights for each of the Attention heads. The weight of each head is a (b, h, n_tar, n_tar or n_inp) tensor
+		"""
+
+		seq_len = tf.shape(x)[1]  # n_tar
 		attention_weights = {}  # TODO: Why this?
 
-		x = self.embedding(x)  # (b, n, d). Where n is the target seq_len
+		x = self.embedding(x)  # (b, n_tar, d)
 		x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))  # BY_EXPERIENCE: A normalization term!
-		x += self.pos_encoding[:, :seq_len, :]
-
+		x += self.pos_encoding[:, :seq_len, :]  # Adding the positional encodings to the input sequences
 		x = self.dropout(x, training=training)
 
-		# This call() calls the DecoderLayer's call() on each iteration
 		for i in range(self.num_layers):
 			x, block1, block2 = self.dec_layers[i](x, enc_output, training, look_ahead_mask, padding_mask)
 			attention_weights[f"decoder_layer{i + 1}_block1"] = block1
 			attention_weights[f"decoder_layer{i + 1}_block2"] = block2
 
-		return x, attention_weights  # x's shape is (b, n, d)
+		return x, attention_weights  # (b, n_tar, d)
 
 
 class Transformer(tf.keras.Model):
@@ -462,15 +548,20 @@ class Transformer(tf.keras.Model):
 
 		Parameters
 		----------
-		- `inputs`: A tuple of inputs and targets.
+		- `inputs`: A tuple of inputs and targets. Each one containing batch_size of sentences of equal length.
 		"""
 
 		inp, tar = inputs  # es, en
 
 		enc_padding_mask, look_ahead_mask, dec_padding_mask = self._create_masks(inp, tar)
 
-		enc_output = self.encoder(inp, training, enc_padding_mask)  # (b, inp_n, d)
-		dec_output, attention_weights = self.decoder(tar, enc_output, training, look_ahead_mask, dec_padding_mask)  # (b, tar_n, d)
+		# (b, n_inp, d)
+		enc_output = self.encoder(inp, training, enc_padding_mask)
+
+		# dec_output is (b, n_tar, d)
+		dec_output, attention_weights = self.decoder(tar, enc_output, training, look_ahead_mask, dec_padding_mask)
+
 		final_output = self.final_layer(dec_output)
 
+		# final_output is (b, n_tar, d)
 		return final_output, attention_weights

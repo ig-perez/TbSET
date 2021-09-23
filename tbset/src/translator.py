@@ -19,7 +19,7 @@ class TrainingTranslator:
         :param num_layers: The number of Encoder/Decoder blocks in the Transformer.
         :param d_model: Dimensionality of the internal vector representation of the Transformer.
         :param num_heads: The number of Attention heads for the MultiHeadAttention module.
-        :param dff: Dimensionality of the FFN inside the Encoder/Decoder.
+        :param dff: Dimensionality of the NN's output space (number of units) inside the Encoder/Decoder blocks.
         :param dropout_rate: The percentaje of units to turn off during training.
         :param ckpt_path: The path where to store/search partial parameters from training.
         :param save_path: The path where to save/load the model after training.
@@ -80,7 +80,7 @@ class TrainingTranslator:
             tar_real = tar[:, 1:]
 
             with tf.GradientTape() as tape:  # TODO
-                predictions, _ = transformer([inp, tar_inp], training=True)
+                predictions, _ = transformer([inp, tar_inp], training=True)  # OJO al transformer le paso tuple!
                 loss = loss_function(tar_real, predictions)
 
                 gradients = tape.gradient(loss, transformer.trainable_variables)
@@ -140,7 +140,8 @@ class TrainingTranslator:
             train_loss.reset_states()
             train_accuracy.reset_states()
 
-            # inp: Spanish, tar:English
+            # inp (b, n_inp): Spanish, tar (b, n_tar):English. Training dataset contains train_batches = train_examples/batches examples
+            # Each (inp, tar) tuple is a batch. inp contains batch_size of items with length equal to n_inp
             for (batch, (inp, tar)) in enumerate(train_batches):
                 _train_step(inp, tar)
 
