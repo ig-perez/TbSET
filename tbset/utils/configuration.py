@@ -1,10 +1,14 @@
 import configparser
 
+# .....................................................................................................................
+
 
 class TbSETConfig:
     def __init__(self) -> None:
         """
         An object to expose the projects parameters and secrets.
+
+        :return: None
         """
 
         config = configparser.ConfigParser()
@@ -32,10 +36,18 @@ class TbSETConfig:
         else:
             raise IOError("Impossible to open the config file for TbSET.")
 
-    def update_config(self, section: str, field: str, value: str) -> None:
+    @staticmethod
+    def update_config(section: str, field: str, value: str) -> None:
         """
-        Updates "tbset/tbset.ini" file with provided values
+        Updates "tbset/tbset.ini" file with provided values.
+
+        :param section: The name of the configuration section where we want to make changes.
+        :param field: The name of the configuration field we want to change.
+        :param value: The new value we want to replace.
+
+        :return: None
         """
+
         config = configparser.ConfigParser()
         config.read("tbset/tbset.ini")
 

@@ -3,7 +3,7 @@ import tensorflow as tf
 
 from prompt_toolkit import PromptSession
 from tbset.utils.configuration import TbSETConfig
-from tbset.src.translator import TrainingTranslator
+from tbset.src.translator import Trainer
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.validation import Validator, ValidationError, DummyValidator
 
@@ -146,7 +146,9 @@ class TbSETPrompt:
 
         if saved_path and tf.saved_model.contains_saved_model(saved_path):
             print("INFO: Trained model found. It will be used for inference.")
-            # TODO: insert inference code here
+            reloaded = tf.saved_model.load(saved_path)
+            result = reloaded(oracion).numpy()
+            print(f"TRANSLATION IS => {result}")
         else:
             print("INFO: Couldn't find a saved model. Train the translator first with the `train` command.")
 
@@ -163,8 +165,8 @@ class TbSETPrompt:
                 print("INFO: An existing saved model will be used for inference")
             else:
                 params = {**self.config.TRN_HYPERP, **self.config.DATASET_HYPERP}
-                translator = TrainingTranslator(**params)
-                translator.train()
+                trainer = Trainer(**params)
+                trainer.train()
                 # TODO: Measure training time and inform results and how to use the trained model
         else:
             print("INFO: Path to save model wasn't provided in config file. Can't train the model")

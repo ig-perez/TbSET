@@ -4,12 +4,25 @@ import tensorflow as tf
 import tensorflow_text as text
 import tensorflow_datasets as tfds
 
+from typing import Any
 from tensorflow_text.tools.wordpiece_vocab import bert_vocab_from_dataset as bert_vocab_maker
+
+# .....................................................................................................................
 
 
 class EnEsTokenizer(tf.Module):
 
-    def __init__(self, reserved_tokens, vocab_path):
+    def __init__(self, reserved_tokens: list, vocab_path: str) -> None:
+        """
+        An object to perform tokenization, detokenization, return the tokens from a sentence, and other helper
+        functions for source and targe languages.
+
+        :param reserved_tokens: A list of special tokens including the START, END and PADDING tokens.
+        :param vocab_path: The folder where to store/read-from the vocabulary files for source/target languages.
+
+        :return: None
+        """
+
         super(EnEsTokenizer, self).__init__()
 
         self.tokenizer = text.BertTokenizer(vocab_path, lower_case=True)
@@ -35,7 +48,16 @@ class EnEsTokenizer(tf.Module):
         self.get_vocab_path.get_concrete_function()
         self.get_reserved_tokens.get_concrete_function()
 
-    def _add_start_end(self, ragged_tensor):
+    def _add_start_end(self, ragged_tensor: Any) -> Any:
+        """
+        Adds the START and END tokens at the beginning and end of provided tensor.
+
+        :param ragged_tensor: A tensor with variable shape where we want to add the START and END tokens.
+
+        :return: A ragged tensor containing the START and END token. These tokens are added before padding the
+                sequences.
+        """
+
         count = ragged_tensor.bounding_shape()[0]  # Number of rows
         starts = tf.fill([count, 1], self._start)  # col vector: count-times the START index
         ends = tf.fill([count, 1], self._end)
@@ -43,9 +65,12 @@ class EnEsTokenizer(tf.Module):
         # Add START and END as column value on each item
         return tf.concat([starts, ragged_tensor, ends], axis=1)
 
-    def _cleanup_text(self, reserved_words, words):
+    @staticmethod
+    def _cleanup_text(reserved_words: list, words: Any) -> Any:
         """
-        Removes reserved tokens and join tensor of words into sentences
+        Used during detokenization. This method removes reserved tokens and join tensor of words into sentences.
+
+        :param reserved_words:
         """
 
         # Remove special tokens except "[UNK]"
@@ -60,12 +85,17 @@ class EnEsTokenizer(tf.Module):
         return result
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None], dtype=tf.string)])
-    def tokenize(self, strings):
+    def tokenize(self, strings: Any) -> Any:
         """
-        but what if it were active ? -> [2, 87, 90, 107, 76, 129, 1852, 30, 3] ... this include word-pieces
+        Uses the text.BertTokenizer method to convert string inputs into numeric representations. For example:
 
-        :param strings:
-        :return:
+        'but what if it were active ?' -> [2, 87, 90, 107, 76, 129, 1852, 30, 3]
+
+        The START token has index 2 in the vocabularies. The END token, 3.
+
+        :param strings: A Tensor or RaggedTensor of untokenized UTF-8 strings.
+        :return: A RaggedTensor with words and wordpieces following the WordPiece algorithm. The START and END tokens
+                have been added.
         """
         results = self.tokenizer.tokenize(strings)  # BertTokenizer returns (batch, word, word-piece)
         results = results.merge_dims(-2, -1)  # (batch, word, word-piece) -> (batch, tokens)
@@ -74,36 +104,86 @@ class EnEsTokenizer(tf.Module):
         return results
 
     @tf.function
-    def detokenize(self, tokenized):
+    def detokenize(self, tokenized: Any) -> Any:
+        """
+        Converts the numeric representation of a batch of examples into a batch of strings.
+
+        :param tokenized: A tensor containing a batch of numeric representation of examples.
+
+        :return: A tensor containing the equivalent words and wordpieces of numeric values.
+        """
+
         words = self.tokenizer.detokenize(tokenized)
 
         return self._cleanup_text(self._reserved_tokens, words)
 
     @tf.function
-    def lookup(self, token_ids):
-        # Use the vocab to return strings (wordpieces included) from token ids
+    def lookup(self, token_ids: Any) -> Any:
+        """
+        Use the vocab to return strings (wordpieces included) from token ids.
+
+        :param token_ids: Numeric representation of words as indexes of the correpondind vocabulary.
+
+        :return: A tensor containing the corresponding words or wordpieces from the vocabulary.
+        """
+
         return tf.gather(self.vocab, token_ids)
 
     @tf.function
-    def get_vocab_size(self):
+    def get_vocab_size(self) -> Any:
+        """
+        Obtains the size of given vocabulary.
+
+        :return: The size of current vocabulary.
+        """
+
         return tf.shape(self.vocab)[0]  # Resist the temptation of using len!
 
     @tf.function
-    def get_vocab_path(self):
+    def get_vocab_path(self) -> Any:
+        """
+        Obtains the path where current vocabulary is stored.
+
+        :return: The path to current vocabulary file.
+        """
+
         return self._vocab_path
 
     @tf.function
-    def get_reserved_tokens(self):
+    def get_reserved_tokens(self) -> Any:
+        """
+        Obtains the list of reserved tokens used during the tokenization process.
+
+        :return: The list of reserved tokens used for tokenization.
+        """
         return tf.constant(self._reserved_tokens)
 
 
 class Dataset:
 
-    def __init__(self, dwn_destination, vocab_path, buffer_size, batch_size, vocab_size, num_examples):
+    def __init__(self, dwn_destination: str, vocab_path: str, buffer_size: int, batch_size: int, vocab_size: int,
+                 num_examples: int) -> None:
+        """
+        An object to load, prepare, and provide Dataset objects for training. It specifically uses the OPUS corpora
+        to retrieve a fixed number of English/Spanish training examples. The method `workout_dataset`:
+        - Shuffles each dataset
+        - Creates batches of examples to be consumed at each training step
+        - Tokenizes each batch
+        - Prefetchs the batches
+
+        :param dwn_destination: The folder where to save the training examples.
+        :param vocab_path: The path where to store the generated vocabulary files.
+        :param buffer_size: The number of items to consider when shuffling the training data.
+        :param batch_size: The number of training example to include on each training set.
+        :param vocab_size: The top tokens to consider when performing tokenization.
+        :param num_examples: The number of training examples to retrieve from the OPUS corpora.
+        """
+
         super(Dataset, self).__init__()
 
         self.dwn_destination = dwn_destination
         self.vocab_path = vocab_path
+
         # Dataset hyperparameters
         self.buffer_size = buffer_size
         self.batch_size = batch_size
@@ -112,20 +192,24 @@ class Dataset:
 
         self.tokenizers = tf.Module()
 
-    def _get_opus_datasets(self, dwn_path: str, num_items: int):
+    @staticmethod
+    def _get_opus_datasets(dwn_path: str, num_items: int):
         """
-        A function to download an ES/EN dataset and return non-shuffled
-        training, test, and validation Datasets objects.
+        A function to download an ES/EN dataset and return non-shuffled training, test, and validation Datasets objects
+
+        :param dwn_path: The folder where to save the training examples.
+        :param num_items: The number of training examples to retrieve from the OPUS corpora.
+
+        :return: A tuple containing the training dataset splitted into training, test, and validations subsets.
         """
 
         build_config = tfds.translate.opus.OpusConfig(
             version=tfds.core.Version("0.1.0"),
             language_pair=("es", "en"),
-            subsets=["OpenSubtitles"]  # Future: Add books
+            subsets=["OpenSubtitles"]  # TODO: Add Books dataset to improve performance
         )
-        # opus only provides only one split: "train"
+        # OPUS only provides one split: "train"
         builder = tfds.builder("opus", config=build_config)
-        # builder.info
 
         # By default stored in /root/tensorflow_datasets
         dwn_config = tfds.download.DownloadConfig(
@@ -133,7 +217,6 @@ class Dataset:
             max_examples_per_split=num_items  # "train" split only
         )
 
-        # I guess each time this is called capped download will be refresh
         builder.download_and_prepare(
             download_dir=dwn_path,  # Use the files from here instead downloading again
             download_config=dwn_config
@@ -144,24 +227,45 @@ class Dataset:
 
         return raw_trn_ds, raw_tst_ds, raw_val_ds
 
-    def _tokenize_pairs(self, pair):
-      """
-      pair: Dictionary containing a batch-size set of sentences in English and their
-            equivalent translation in Spanish.
-      """
+    def _tokenize_pairs(self, pair: dict) -> tuple:
+        """
+        Uses the Bert tokenizer to convert a batch of strings (Spanish and English) into numerical equivalences. The
+        batches after tokenization are ragged tensors (variable size). After applying the `to_tensor` method all items
+        in the batch will be padded with 0 (PAD token) until they have the same length of the longest sentence in the
+        batch. This type of tokenization considers subword tokens.
 
-      en = pair["en"]
-      es = pair["es"]
+        :param pair: Dictionary containing a batch-size set of sentences in Spanish and their equivalent translation in
+                    English. After the batch has been tokenized it is converted to a dense tensor with the `to_tensor`
+                    method. This method pads the items to the longest item length in the batch.
 
-      es = self.tokenizers.es.tokenize(es)
-      en = self.tokenizers.en.tokenize(en)
+        :return: A tuple of dense tensors containing the Spanish and English tokenized sentences in the "pair" batch.
+        """
 
-      # From ragged to dense padding with zeros
-      return es.to_tensor(), en.to_tensor()
+        en = pair["en"]
+        es = pair["es"]
+
+        es = self.tokenizers.es.tokenize(es)
+        en = self.tokenizers.en.tokenize(en)
+
+        # From ragged to dense padding with zeros up to the longest item length of the batch
+        return es.to_tensor(), en.to_tensor()
 
     def workout_datasets(self):
+        """
+        A dataset pipeline that load the training dataset, create the vocabularies (if not exist) for the source and
+        target languages, create the tokenizers for both languages, and prepare the datasets for consumption in the
+        training process. This involves next actions:
+        - Shuffle each dataset
+        - Create batches of examples to be consumed at each training step
+        - Tokenize each batch
+        - Prefetch the batches
 
-        # 1. Load the datasets
+        :return: A tuple containing three prefetch Dataset objetcs to be used as training, test and validation sets.
+                Each dataset contains batches of training examples. Each item in the datasets is a tuple of input and
+                target batches of sentences.
+        """
+
+        # 1. Load the datasets. Each of these datasets contain strings
         (raw_trn_ds,
          raw_tst_ds,
          raw_val_ds) = self._get_opus_datasets(self.dwn_destination, self.num_examples)
@@ -200,7 +304,7 @@ class Dataset:
         self.tokenizers.es = EnEsTokenizer(reserved_tokens, f"{self.vocab_path}/es_vocab.txt")
         self.tokenizers.en = EnEsTokenizer(reserved_tokens, f"{self.vocab_path}/en_vocab.txt")
 
-        # 3. Prepare datasets for training
+        # 3. Prepare datasets for training. map function will tokenize all the batches
         train_batches = raw_trn_ds.cache()\
             .shuffle(self.buffer_size)\
             .batch(self.batch_size)\
