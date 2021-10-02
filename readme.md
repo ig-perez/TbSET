@@ -2,7 +2,7 @@
 Este repositorio contiene un traductor Español-Inglés basado en un Transformer model entrenado con XXX ejemplos (customized training loop) en Google Cloud.
 
 <p align='center'>
-    <img src='./assets/project-structure.png' width='50%' height='Auto' />
+    <img src='./tbset/assets/project-structure.png' width='50%' height='Auto' />
     <br>
     <span align='center' style="font-size: smaller;">A visualization of the Transformer architecture. Source: nature.com</span>
 </p>
@@ -20,7 +20,7 @@ Espero lo disfrutes!
 ## The project structure
 
 <p align='center'>
-    <img src='./assets/project-structure.png' width='50%' height='Auto' />
+    <img src='./tbset/assets/project-structure.png' width='50%' height='Auto' />
     <br>
     <span align='center' style="font-size: smaller;">Source: Own</span>
 </p>
