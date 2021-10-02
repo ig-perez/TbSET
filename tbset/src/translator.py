@@ -179,55 +179,86 @@ class Trainer:
 
         # 6. Save trained model for later use
         print("INFO: Saving trained model ...")
-        saved_translator = Translator(dataset_object.tokenizers, transformer)
-        exported_translator = Exporter(saved_translator)
-        tf.saved_model.save(exported_translator, export_dir=self.save_path)
-
-    def translate(self, oracion):
-        reloaded = tf.saved_model.load(self.save_path)
-        translation = reloaded(oracion).numpy()
-
-        return translation
+        translator = Translator(dataset_object.tokenizers, transformer)  # The inference model
+        exporter = Exporter(translator)  # Wraps the inference model with a @tf.function decorator
+        tf.saved_model.save(exporter, export_dir=self.save_path)
 
 
 class Exporter(tf.Module):
 
-    def __init__(self, translator):
+    def __init__(self, translator: tf.Module) -> None:
+        """
+        A wrapper to efficiently save the inference model.
+
+        :param translator: An inference model to be used when loading the saved trained model.
+
+        :return: None
+        """
         super(Exporter, self).__init__()
         self.translator = translator
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[], dtype=tf.string)])
-    def __call__(self, sentence):
+    def __call__(self, sentence: Any) -> Any:
+        """
+        Inference method to translate a sentence from Spanish to English. When you save a tf.Module, any tf.Variable
+        attributes, tf.function-decorated methods, and tf.Modules found via recursive traversal are saved. However,
+        any Python attributes, functions, and data are lost. This means that when a tf.function is saved, no Python
+        code is saved. The tf.function decorator works by tracing the Python code to generate a ConcreteFunction
+        (a callable wrapper around tf.Graph). When saving a tf.function, you're really saving the tf.function's cache
+        of ConcreteFunctions.
+
+        The resulting SavedModel will only be servable with an input (sentence) with dtype string. When invoking a
+        signature in an exported SavedModel, Tensor arguments are identified by name. These names will come from the
+        Python function's argument names by default (in this case sentence).
+
+        :param sentence: A sentence in Spanish to be translated into English with an inference model.
+
+        :return: A tuple containing the prediction for the translated sentence, the tokens that make up the prediction,
+                and the attention_weights from the prediction.
+        """
         (result, tokens, attention_weights) = self.translator(sentence, max_length=100)
 
+        # Only output sentence is returned. tf.function's non-strict execution never computes any unnecessary values
         return result
 
 
 class Translator(tf.Module):
-    """
-    The following steps are used for inference:
-    1. Encode the input sentence using the Spanish tokenizer (tokenizers.es). This is the encoder input.
-    2. The decoder input is initialized to the [START] token.
-    3. Calculate the padding masks and the look ahead masks.
-    4. The decoder then outputs the predictions by looking at the encoder output and its own output (self-attention).
-    5. Concatenate the predicted token to the decoder input and pass it to the decoder.
-    6. In this approach, the decoder predicts the next token based on the previous tokens it predicted.
-    """
 
-    def __init__(self, tokenizers, transformer):
+    def __init__(self, tokenizers: tf.Module, transformer: tf.keras.Model) -> None:
+        """
+        An object to perform inference from a trained model. The following steps are done for inference:
+            1. Encode the input sentence using the Spanish tokenizer (tokenizers.es). This is the encoder input.
+            2. The decoder input is initialized to the [START] token.
+            3. Calculate the padding masks and the look ahead masks.
+            4. The decoder outputs the predictions by looking at the encoder output and its own output (self-attention).
+            5. Concatenate the predicted token to the decoder input and pass it to the decoder.
+            6. In this approach, the decoder predicts the next token based on the previous tokens it predicted.
+
+        :param tokenizers: Bert tokenizers for English and Spanish text.
+        :param transformer: A Transformer model trained for Spanish-English translation.
+
+        :return: None
+        """
+
         self.tokenizers = tokenizers
         self.transformer = transformer
 
-    @staticmethod
-    def print_translation(self, sentence, tokens, ground_truth):
-        print(f'{"Input:":15s}: {sentence}')
-        print(f'{"Prediction":15s}: {tokens.numpy().decode("utf-8")}')
-        print(f'{"Ground truth":15s}: {ground_truth}')
+    def __call__(self, sentence: Any, max_length: int = 20) -> tuple:
+        """
+        A callable that implements the full logic needed to make inference with a given trained model.
 
-    def __call__(self, sentence, max_length=20):
+        :param sentence: A tensor containing strings in the source language (Spanish) to be used as input for the
+                        Encoder for translation.
+        :param max_length: The maximum length of the translated sentence. The prediction loop will break if the END
+                        token is found before the max. length has been reached.
 
-        # input sentence is spanish, hence adding the START and END token
+        :return: A tuple containing the prediction for the translated sentence, the tokens that make up the prediction,
+                and the attention_weights from the prediction.
+        """
+
+        # Input sentence is Spanish, hence adding the START and END token
         assert isinstance(sentence, tf.Tensor)
+
         if len(sentence.shape) == 0:
             sentence = sentence[tf.newaxis]
 
@@ -235,8 +266,7 @@ class Translator(tf.Module):
 
         encoder_input = sentence
 
-        # as the target is english, the first token to the transformer should be the
-        # english start token.
+        # As the target is english, the first token to the transformer should be the english start token.
         start_end = self.tokenizers.en.tokenize([''])[0]
         start = start_end[0][tf.newaxis]
         end = start_end[1][tf.newaxis]
@@ -248,6 +278,8 @@ class Translator(tf.Module):
 
         for i in tf.range(max_length):
             output = tf.transpose(output_array.stack())
+
+            # More efficient for inference if only calculate last prediction when running in inference mode
             predictions, _ = self.transformer([encoder_input, output], training=False)
 
             # select the last token from the seq_len dimension

@@ -214,6 +214,7 @@ class Dataset:
         # By default stored in /root/tensorflow_datasets
         dwn_config = tfds.download.DownloadConfig(
             extract_dir=dwn_path,  # store extracted files here
+            download_mode=tfds.GenerateMode.REUSE_CACHE_IF_EXISTS,  # Reuse downloads, fresh dataset
             max_examples_per_split=num_items  # "train" split only
         )
 
@@ -300,7 +301,7 @@ class Dataset:
             with open(f"{self.vocab_path}/en_vocab.txt", "w") as file:
                 file.writelines("%s\n" % token for token in en_vocab)
 
-        # Create tokenizers
+        # Create tokenizers as tf.Module()
         self.tokenizers.es = EnEsTokenizer(reserved_tokens, f"{self.vocab_path}/es_vocab.txt")
         self.tokenizers.en = EnEsTokenizer(reserved_tokens, f"{self.vocab_path}/en_vocab.txt")
 
@@ -323,5 +324,5 @@ class Dataset:
             .map(self._tokenize_pairs, num_parallel_calls=tf.data.AUTOTUNE)\
             .prefetch(tf.data.AUTOTUNE)
 
-        # I'm not using other datasets yet
+        # For the moment just with training dataset
         return train_batches, None, None

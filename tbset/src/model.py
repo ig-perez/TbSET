@@ -4,8 +4,8 @@ import tensorflow as tf
 # TF type annotations not yet implemented as of sept. 21: https://github.com/tensorflow/tensorflow/issues/12345
 from typing import Any
 
-# TODO: REMOVE THIS BEFORE FINISHING !!!!!!!!!!!!!!!!!
-tf.config.run_functions_eagerly(True)
+# TODO: REMOVE THIS BEFORE TRAINING!
+# tf.config.run_functions_eagerly(True)
 
 # .....................................................................................................................
 

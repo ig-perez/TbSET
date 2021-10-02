@@ -1,4 +1,5 @@
 import re
+import time
 import tensorflow as tf
 
 from prompt_toolkit import PromptSession
@@ -73,6 +74,16 @@ class TbSETPrompt:
             "translate"
         ])
 
+        # Check if saved model is present for inference
+        saved_path = self.config.TRN_HYPERP["save_path"]
+
+        if saved_path and tf.saved_model.contains_saved_model(saved_path):
+            print("INFO: Trained model found. It will be used for inference.\n")
+            self.saved_translator = tf.saved_model.load(saved_path)
+        else:
+            print("INFO: Trained model not found. Please train the model before making inference.\n")
+            self.saved_translator = None
+
     def _command_processor(self, cmd: str) -> None:
         """
         Handles the commands typed by the user.
@@ -141,16 +152,11 @@ class TbSETPrompt:
         :return: None
         """
 
-        # Check if in the saved model path there is already a trained model
-        saved_path = self.config.TRN_HYPERP["save_path"]
-
-        if saved_path and tf.saved_model.contains_saved_model(saved_path):
-            print("INFO: Trained model found. It will be used for inference.")
-            reloaded = tf.saved_model.load(saved_path)
-            result = reloaded(oracion).numpy()
-            print(f"TRANSLATION IS => {result}")
+        if self.saved_translator:
+            result = self.saved_translator(oracion).numpy()
+            print(f"... English translation: {result}\n")
         else:
-            print("INFO: Couldn't find a saved model. Train the translator first with the `train` command.")
+            print("INFO: Couldn't find a saved model. Train the translator first with the `train` command.\n")
 
     def train(self) -> None:
         """
@@ -162,11 +168,18 @@ class TbSETPrompt:
         # Check if in the saved model path there is already a trained model
         if self.config.TRN_HYPERP["save_path"]:
             if tf.saved_model.contains_saved_model(self.config.TRN_HYPERP["save_path"]):
-                print("INFO: An existing saved model will be used for inference")
+                print("INFO: An existing saved model will be used for inference\n")
             else:
                 params = {**self.config.TRN_HYPERP, **self.config.DATASET_HYPERP}
                 trainer = Trainer(**params)
+
+                print(f"INFO: Starting training ... \n")
+                start_time = time.time()
                 trainer.train()
-                # TODO: Measure training time and inform results and how to use the trained model
+                print(f"\nINFO: Training completed in {round((time.time() - start_time)/60, 2)} minutes.\n")
+
+                # Instantiate the saved translator for inference
+                saved_path = self.config.TRN_HYPERP["save_path"]
+                self.saved_translator = tf.saved_model.load(saved_path)
         else:
-            print("INFO: Path to save model wasn't provided in config file. Can't train the model")
+            print("INFO: Path to save model wasn't provided in config file. Can't train the model\n")
