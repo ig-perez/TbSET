@@ -1,20 +1,30 @@
 # What is this?
 Este repositorio contiene un traductor Español-Inglés basado en un Transformer model entrenado con XXX ejemplos (customized training loop) en Google Cloud.
 
-- [ ] IMAGEN DE UN TRANSFORMER
+<p align='center'>
+    <img src='./assets/project-structure.png' width='50%' height='Auto' />
+    <br>
+    <span align='center' style="font-size: smaller;">A visualization of the Transformer architecture. Source: nature.com</span>
+</p>
 
-No se trata de un notebook, sino de un proyecto modular orientado a objetos con un TUI sencillo que permite interactuar con el traductor, para entrenarlo y también para hacer inferencia con el modelo guardado en disco después del entrenamiento.
+No se trata de un notebook, sino de un proyecto modular orientado a objetos con un TUI sencillo que permite interactuar con el traductor para entrenarlo y también para hacer inferencia con el modelo guardado en disco tras el entrenamiento.
 
 - [ ] GIF EJEMPLO
 
-Este no es proyecto para uso comercial, sino como un ejercicio práctico para incrementar mis conocimientos y habilidades técnicas en NLP. Por este motivo, en caso lo deseen utilizar, tengan en cuenta que está lejos de funcionar perfectamente. En definitiva, hay varias mejoras futuras, las cuales están detalladas en la sección "Future improvements". 
+Este no es proyecto para uso comercial, sino es un ejercicio práctico para incrementar mis conocimientos y habilidades técnicas en NLP. Por este motivo, en caso lo deseen utilizar, tengan en cuenta que está lejos de funcionar perfectamente. En definitiva, hay varias mejoras futuras, las cuales están detalladas en la sección "Future improvements". 
 
 Puedes leer el artículo relacionado con este repositorio aquí. En el artículo detallo los retos más importantes a los que me enfrenté, profundizo en conceptos cruciales, y comparto algunos consejos prácticos para aquellos que estén en el mismo barco que yo.
 
 Espero lo disfrutes!
 
 ## The project structure
-- [ ] Add mermaid
+
+<p align='center'>
+    <img src='./assets/project-structure.png' width='50%' height='Auto' />
+    <br>
+    <span align='center' style="font-size: smaller;">Source: Own</span>
+</p>
+
 
 ## The configuration file
 - [ ] Explain each section and element
