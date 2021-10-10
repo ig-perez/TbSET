@@ -9,12 +9,10 @@ This repository contains a Spanish-English translator based on a Transformer mod
 
 It is not a notebook but a modular object-oriented project with a simple TUI that allows interaction with the translator.
 
-<p align="center">
-<video controls width="100%" loop=true>
-    <source src="tbset/assets/08-tbset-demo.webm.mp4" type="video/webm">
-</video>
-<br>
-<span align='center' style="font-size: smaller;">The translator at inference time. Source: Own</span>
+<p align='center'>
+    <img src="tbset/assets/08-tbset-demo.gif" width='80%' height='Auto' />
+    <br>
+    <span align='center' style="font-size: smaller;">The translator at inference time. Source: Own</span>
 </p>
 
 This project is a practical exercise to increase my knowledge and technical skills in NLP. For this reason, if you want to use it, keep in mind that it is not perfect, and that is not the purpose of its construction.
