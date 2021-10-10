@@ -1,3 +1,4 @@
+import os
 import re
 import time
 import tensorflow as tf
@@ -93,7 +94,11 @@ class TbSETPrompt:
         """
 
         if cmd == "translate":
-            oracion = self.session.prompt("... Texto en español: ", validator=TbSETValidator("text_max_len"))
+            oracion = self.session.prompt(
+                "... Texto en español: ",
+                validator=TbSETValidator("text_max_len"),
+                complete_while_typing=False)
+
             self.translate(oracion)
         elif cmd == "train":
             confirmation = self.session.prompt("... This will take at least 30' with a GPU. Are you sure? (y/n): ",
@@ -126,6 +131,7 @@ class TbSETPrompt:
         :return: None
         """
 
+        os.system("cls" if os.name == "nt" else "clear")
         print("Bienvenido al traductor TbSET. Para salir presiona Ctrl-D.\n")
 
         while True:
@@ -133,7 +139,8 @@ class TbSETPrompt:
                 typed = self.session.prompt(
                     ".TbSET > ",
                     completer=self.commands,
-                    validator=DummyValidator()
+                    validator=DummyValidator(),
+                    complete_while_typing=True
                     )
             except KeyboardInterrupt:
                 continue

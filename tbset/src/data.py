@@ -195,7 +195,7 @@ class Dataset:
     @staticmethod
     def _get_opus_datasets(dwn_path: str, num_items: int):
         """
-        A function to download an ES/EN dataset and return non-shuffled training, test, and validation Datasets objects
+        A function to download an ES/EN dataset and returns non-shuffled training, test, and validation Datasets objects
 
         :param dwn_path: The folder where to save the training examples.
         :param num_items: The number of training examples to retrieve from the OPUS corpora.

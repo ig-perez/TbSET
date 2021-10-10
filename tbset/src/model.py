@@ -451,7 +451,7 @@ class Decoder(tf.keras.layers.Layer):
 		A complete set of calculations for decoding the input sequence and making a prediction.
 
 		:param x: A (b, n_tar) tensor containing training examples to be used as inputs. Where `b` is the `batch_size`,
-				and `n_inp` is the length of the tokenized padded examples.
+				and `n_tar` is the length of the tokenized padded examples. x == tar_inp from _train_step.
 		:param enc_output: A (b, n_inp, d) tensor containing the representation build by the Encoder block.
 		:param training: Indicates how the layer should behave in training mode (adding dropout) or in inference mode
 						(doing nothing).
@@ -580,12 +580,13 @@ class Transformer(tf.keras.Model):
 		return enc_padding_mask, look_ahead_mask, dec_padding_mask
 
 	# Keras expects all your inputs in the first argument
-	def call(self, inputs: tuple, training: bool) -> tuple:
+	def call(self, inputs: list, training: bool) -> tuple:
 		"""
 		Executes a complete set of calculations to process a batch of inputs and its corresponding outputs as part of
 		each training step.
 
-		:param inputs: A tuple of inputs and targets. Each one containing batch_size padded sentences.
+		:param inputs: A list containing two elements: inputs and targets (tar_inp). Each one containing batch_size
+					padded sentences.
 		:param training: Indicates how the layer should behave in training mode (adding dropout) or in inference mode
 						(doing nothing).
 

@@ -1,14 +1,10 @@
 import time
-import logging
 import tensorflow as tf
 
 from typing import Any
 from tbset.src.data import Dataset
 from tbset.src.model import Transformer
 from tbset.src.optimization import CustomSchedule, loss_function, accuracy_function
-
-tf.get_logger().setLevel(logging.ERROR)
-tf.autograph.set_verbosity(3)
 
 # .....................................................................................................................
 
