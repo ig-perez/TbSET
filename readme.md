@@ -11,7 +11,7 @@ It is not a notebook but a modular object-oriented project with a simple TUI tha
 
 <p align="center">
 <video controls width="100%" loop=true>
-    <source src="./tbset/assets/08-tbset-demo.webm" type="video/webm">
+    <source src="tbset/assets/08-tbset-demo.webm.mp4" type="video/webm">
 </video>
 <br>
 <span align='center' style="font-size: smaller;">The translator at inference time. Source: Own</span>
