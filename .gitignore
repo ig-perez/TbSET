@@ -1,3 +1,5 @@
-__pycache__
-local.multivac
 .idea
+__pycache__
+*.tar.gz
+**/local.multivac/*
+!**/local.multivac/saved_model

@@ -1,5 +1,5 @@
 # What is this?
-This repository contains a Spanish-English translator based on a Transformer model trained with 114k examples (customized training loop) in Google Cloud.
+This repository contains a Spanish-English translator based on a Transformer model. I trained it on Google Cloud with 114k examples and a customized training loop.
 
 <p align='center'>
     <img src='./tbset/assets/CUBBITT.webp' width='80%' height='Auto' />
@@ -10,14 +10,14 @@ This repository contains a Spanish-English translator based on a Transformer mod
 It is not a notebook but a modular object-oriented project with a simple TUI that allows interaction with the translator.
 
 <p align='center'>
-    <img src="tbset/assets/08-tbset-demo.gif" width='80%' height='Auto' />
+    <img src="tbset/assets/08-tbset-demo.gif" width='100%' height='Auto' />
     <br>
     <span align='center' style="font-size: smaller;">The translator at inference time. Source: Own</span>
 </p>
 
-This project is a practical exercise to increase my knowledge and technical skills in NLP. For this reason, if you want to use it, keep in mind that it is not perfect, and that is not the purpose of its construction.
+This project is a practical exercise to increase my knowledge and technical skills in NLP. For this reason, if you want to use it, keep in mind that it is not perfect. The purpose of its construction is learning.
 
-You can read the article related to this repository here. In the article, I detail the challenges I faced, delve into crucial concepts of the Transformer architecture, and share some practical advice for those in the same boat as me.
+You can read the article related to this repository [here](https://ivanperez.pe/blog/nlp07-transformer-based-translator). In the article, I detail the challenges I faced when coding the translator, delve into crucial concepts of the Transformer architecture, and share some practical advice for those in the same boat as me.
 
 Enjoy!
 
@@ -30,8 +30,8 @@ It replicates the standard Transformer architecture as shown in image below:
 </p>
 
 From the image:
-- The TUI loop invokes the training process through the `train` method. If it detects a saved model in the configuration file (`tbset.ini`) will load it for inference. Otherwise, it will read the configuration values and instantiate a `Trainer` object. The `trainer.train()` method is invoked to start training.
-- The `Trainer` object instantiates a `Transformer` which creates the architecture with an Encoder, Decoder, and Dense layer. It also implements a custom training loop. The training process includes the following actions:
+- The TUI loop invokes the training process through the `train` method. If it detects a saved model will load it for inference. Otherwise, it will read the configuration values (`tbset.ini`) and instantiate a `Trainer` object.
+- The `Trainer` object instantiates a `Transformer` which creates the architecture with an Encoder, Decoder, and Dense layer. It also implements a custom training loop. The training process (invoked with `trainer.train()`) includes the following actions:
   - Dataset workout: A pipeline that downloads and prepares the dataset, creates batches, tokenize each batch (if vocabularies are missing, it will create them using a `BertTokenizer`), and prefetch the dataset.
   - Instantiate the Transformer model and set up the optimizer.
   - Restore any previous checkpoint if it is the case.
@@ -49,7 +49,7 @@ From the image:
   - The third one is an FFN that processes the output of the second subblock.
 
 ## The configuration file
-All the hyperparameters and other variables values are managed from the `tbset.ini` configuration file. The current model was trained with the following values:
+The `tbset.ini` configuration file manages all hyperparameters and important variables values. These are the values I used to train the translator:
 ```
 [TRN_HYPERP]
 num_layers = 4
@@ -72,13 +72,12 @@ num_examples = 114000
 
 These parameters make a smaller model comparing it with the base model from Vaswani et. al:
 
-> We trained our models on one machine with 8 NVIDIA P100 GPUs. For our base models using the hyperparameters described throughout the paper, each training step took about 0.4 seconds. We trained the base models for a total of 100,000 steps or 12 hours. For our big models,(described on the bottom line of table 3), step time was 1.0 seconds. The big models were trained for 300,000 steps
-(3.5 days).
+> We trained our models on one machine with 8 NVIDIA P100 GPUs. For our base models using the hyperparameters described throughout the paper, each training step took about 0.4 seconds. We trained the base models for a total of 100,000 steps or 12 hours. For our big models,(described on the bottom line of table 3), step time was 1.0 seconds. The big models were trained for 300,000 steps (3.5 days).
 
 ## The dataset
-I used the OPUS dataset available in the TF catalog. This dataset contains a collection of translated texts from the web. The OPUS corpora is a huge repository containing formal and informal text. My first idea was to merge two datasets, the Books and the Subtitles corpora. Sadly, the Books is not yet available in the TensorFlow catalog.
+I chose the OPUS dataset. This dataset is available in the TF catalog. It contains a collection of translated texts from the web, with formal and informal examples. My first idea was to merge two datasets, the Books and the Subtitles corpora. Sadly, the Books is not yet available in the TensorFlow catalog.
 
-For this reason, I trained the model with the Subtitles dataset only, which produced acceptable results given the particularities of this type of text content.
+For this reason, I trained the model with the Subtitles dataset only, which produced acceptable results given the particularities of this type of content.
 
 ## The hardware used for training
 I trained the model in a VM from Google Cloud. The technical characteristics of this VM were:
@@ -86,21 +85,21 @@ I trained the model in a VM from Google Cloud. The technical characteristics of 
 - Memory: 15 GB
 - GPU: One Tesla T4
 
-The training time was almost nine hours (400 epochs and 114K training examples) obtaining a loss of 1.1077 and an accuracy of 0.7303.
+The training time was almost nine hours (400 epochs and 114K training examples). The final loss was 1.1077 with an accuracy of 0.7303.
 
 ## The development process
-It was challenging coding this project following a modular and object-oriented mindset. For this reason, and the quota limitations, I discarded Kaggle or Colab. On the other hand, I wanted to have a real business-like experience. For this reason, I launched a VM on GCP with a preloaded image with Tensorflow 2.6, added the additional dependencies, and connected my IDE to this remote interpreter deploying my code and training the model on the cloud.
+It was challenging coding this project following a modular and object-oriented mindset. For this reason and the quota limitations, I discarded Kaggle or Colab. On the other hand, I wanted to have a real business-like experience. So I launched a VM on GCP with a preloaded Tensorflow 2.6 image, added the additional dependencies, and connected my IDE to this remote interpreter deploying my code and training the model on the cloud.
 
 # How can I use it?
-This repository contains the model's parameters after training so it is very easy to use the translator for inference:
+This repository contains the model's parameters after training, so it is easy to use the translator for inference:
 - Clone the repository
 - Install the dependencies
 - Run the module with `$ python -m tbset`
 - There are two commands available. `train` will train the model from scratch. If a saved model is detected it won't be possible to continue unless you delete the related files from the disk, including the stored checkpoints. The `translate` command will use a saved model for inference.
-- To exit the TUI press Ctrl-D
+- To exit the TUI, press Ctrl-D
 
 ## Requirements
-Dependency-wise, I have found it is tricky to use `tensorflow-text`. If you are starting from scratch, I'd recommend first install the desired version of `tensorflow-text`. TF text will install the appropriate version of `tensorflow` as it requires it to work. If you are using a preinstalled VM be sure the `tensorflow-text` version matches the version of `tensorflow`. 
+Dependency-wise, I have found it is tricky to use `tensorflow-text`. I'd recommend starting with the desired version of `tensorflow-text`. TF text will install the appropriate version of `tensorflow` as it requires it to work. If you are using a preinstalled VM, be sure the `tensorflow-text` version matches the `tensorflow` version. 
 
 As I instantiated a `tensorflow` 2.6.0. VM, these are the dependencies I added:
 - tensorflow-text 2.6.0
